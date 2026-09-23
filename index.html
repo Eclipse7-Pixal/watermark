@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI-Powered PDF Watermark Remover Pro</title>
+    <title>AI PDF Watermark Stripper Pro</title>
     
-    <!-- Production Libraries -->
+    <!-- Production Dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
@@ -15,10 +15,9 @@
             --panel: #151d2a;
             --panel-border: #232d3f;
             --accent: #00f2fe;
-            --accent-dim: rgba(0, 242, 254, 0.15);
+            --accent-dim: rgba(0, 242, 254, 0.12);
             --text-main: #f1f5f9;
             --text-sub: #94a3b8;
-            --danger: #ff4757;
             --success: #2ed573;
         }
 
@@ -26,7 +25,7 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: system-ui, -apple-system, sans-serif;
         }
 
         body {
@@ -47,7 +46,7 @@
         }
 
         .logo-title {
-            font-size: 1.25rem;
+            font-size: 1.2rem;
             font-weight: 700;
             display: flex;
             align-items: center;
@@ -60,18 +59,16 @@
             font-size: 0.75rem;
             padding: 4px 8px;
             border-radius: 4px;
-            font-weight: 600;
             border: 1px solid var(--accent);
         }
 
         .app-layout {
             display: grid;
-            grid-template-columns: 360px 1fr;
+            grid-template-columns: 380px 1fr;
             flex: 1;
             height: calc(100vh - 65px);
         }
 
-        /* Sidebar Controls */
         .sidebar {
             background: var(--panel);
             border-right: 1px solid var(--panel-border);
@@ -85,11 +82,10 @@
         .drop-box {
             border: 2px dashed var(--panel-border);
             border-radius: 8px;
-            padding: 28px 16px;
+            padding: 24px 16px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
-            background: rgba(255, 255, 255, 0.01);
         }
 
         .drop-box:hover {
@@ -100,7 +96,7 @@
         .drop-box input { display: none; }
 
         .section-title {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: var(--text-sub);
@@ -108,27 +104,54 @@
             margin-bottom: 8px;
         }
 
+        /* Progress & Timer Widget */
+        .progress-box {
+            background: var(--bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 14px;
+        }
+
+        .timer-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: var(--panel-border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            width: 0%;
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.1s linear;
+        }
+
         .detected-list {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            max-height: 220px;
+            max-height: 200px;
             overflow-y: auto;
         }
 
         .detected-card {
             background: var(--bg);
             border: 1px solid var(--panel-border);
-            padding: 12px;
+            padding: 10px;
             border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             font-size: 0.85rem;
-        }
-
-        .detected-card.active {
-            border-color: var(--accent);
         }
 
         .btn {
@@ -140,13 +163,10 @@
             font-weight: 700;
             cursor: pointer;
             width: 100%;
-            transition: opacity 0.2s;
         }
 
-        .btn:hover { opacity: 0.9; }
         .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        /* Preview Workspace */
         .workspace {
             padding: 24px;
             display: flex;
@@ -161,27 +181,9 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             border-radius: 4px;
             overflow: hidden;
-            margin-top: 10px;
         }
 
         canvas { display: block; }
-
-        /* Bounding Box Overlay */
-        .selection-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: auto;
-            cursor: crosshair;
-        }
-
-        .status-bar {
-            font-size: 0.85rem;
-            color: var(--text-sub);
-            margin-top: 8px;
-        }
 
         .hidden { display: none !important; }
     </style>
@@ -193,11 +195,10 @@
             <span>AI PDF Watermark Stripper</span>
             <span class="badge">PRO ENGINE</span>
         </div>
-        <div id="fileBadge" class="status-bar">No PDF Loaded</div>
+        <div id="fileBadge" style="font-size:0.85rem; color: var(--text-sub);">No PDF Loaded</div>
     </header>
 
     <div class="app-layout">
-        <!-- Control Panel -->
         <div class="sidebar">
             <div>
                 <div class="section-title">Source File</div>
@@ -207,8 +208,17 @@
                 </div>
             </div>
 
-            <div>
-                <button id="scanBtn" class="btn" disabled>Scan & Detect Watermarks</button>
+            <button id="scanBtn" class="btn" disabled>Scan & Detect Watermarks</button>
+
+            <!-- Progress Meter & Countdown -->
+            <div id="progressWidget" class="progress-box hidden">
+                <div class="timer-display">
+                    <span id="statusLabel">Processing...</span>
+                    <span id="timeRemaining">--:--</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div id="progressFill" class="progress-bar-fill"></div>
+                </div>
             </div>
 
             <div id="detectionPanel" class="hidden">
@@ -217,17 +227,13 @@
             </div>
 
             <div style="margin-top: auto;">
-                <button id="processBtn" class="btn" style="background: var(--success); color: #fff;" disabled>Strip & Export PDF</button>
+                <button id="processBtn" class="btn" style="background: var(--success); color: #fff;" disabled>Strip & Export 100% Original Quality</button>
             </div>
-            <div id="statusText" class="status-bar"></div>
         </div>
 
-        <!-- Document Preview Canvas -->
         <div class="workspace">
-            <div id="pageNav" class="status-bar hidden">Showing Page 1 Preview</div>
-            <div class="canvas-container" id="canvasContainer">
+            <div class="canvas-container">
                 <canvas id="pdfCanvas"></canvas>
-                <div class="selection-layer" id="selectionLayer"></div>
             </div>
         </div>
     </div>
@@ -238,51 +244,38 @@
         let rawBuffer = null;
         let pdfDocLib = null;
         let pdfDocJs = null;
-        let detectedPatterns = [];
         let selectedPatterns = new Set();
 
-        // UI Binding
         const pdfInput = document.getElementById('pdfInput');
         const dropArea = document.getElementById('dropArea');
         const dropText = document.getElementById('dropText');
         const fileBadge = document.getElementById('fileBadge');
         const scanBtn = document.getElementById('scanBtn');
         const processBtn = document.getElementById('processBtn');
+        const progressWidget = document.getElementById('progressWidget');
+        const statusLabel = document.getElementById('statusLabel');
+        const timeRemaining = document.getElementById('timeRemaining');
+        const progressFill = document.getElementById('progressFill');
         const detectionPanel = document.getElementById('detectionPanel');
         const detectedList = document.getElementById('detectedList');
-        const statusText = document.getElementById('statusText');
         const pdfCanvas = document.getElementById('pdfCanvas');
-        const pageNav = document.getElementById('pageNav');
 
         pdfInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
-        
-        dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.style.borderColor = 'var(--accent)'; });
-        dropArea.addEventListener('dragleave', () => { dropArea.style.borderColor = 'var(--panel-border)'; });
-        dropArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropArea.style.borderColor = 'var(--panel-border)';
-            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-        });
 
         async function handleFile(file) {
             if (!file || file.type !== 'application/pdf') return;
 
             dropText.textContent = file.name;
             fileBadge.textContent = `${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`;
-            statusText.textContent = "Loading document memory...";
 
             rawBuffer = await file.arrayBuffer();
             pdfDocLib = await PDFLib.PDFDocument.load(rawBuffer, { ignoreEncryption: true });
             pdfDocJs = await pdfjsLib.getDocument({ data: rawBuffer.slice(0) }).promise;
 
             scanBtn.disabled = false;
-            statusText.textContent = "PDF Loaded. Click 'Scan & Detect' to analyze.";
-            
-            // Render first page preview
             renderPreview(1);
         }
 
-        // Render Page Canvas
         async function renderPreview(pageNum) {
             const page = await pdfDocJs.getPage(pageNum);
             const viewport = page.getViewport({ scale: 1.2 });
@@ -292,116 +285,115 @@
 
             const ctx = pdfCanvas.getContext('2d');
             await page.render({ canvasContext: ctx, viewport }).promise;
-            pageNav.classList.remove('hidden');
         }
 
-        // AUTO-DETECTION ENGINE (Pattern Matching across pages)
+        // NON-BLOCKING ASYNC SCANNING ENGINE WITH COUNTDOWN
         scanBtn.addEventListener('click', async () => {
             scanBtn.disabled = true;
-            statusText.textContent = "Scanning multi-page stream patterns...";
-            detectedPatterns = [];
-            selectedPatterns.clear();
+            progressWidget.classList.remove('hidden');
+            detectionPanel.classList.add('hidden');
             detectedList.innerHTML = '';
+            selectedPatterns.clear();
 
             const pages = pdfDocLib.getPages();
             const totalPages = pages.length;
             const frequencyMap = new Map();
 
-            // Frequency Analysis across page streams
-            pages.forEach((page, pIdx) => {
+            // Estimate ~35ms per page execution time
+            let startTime = Date.now();
+            let estimatedTotalMs = totalPages * 35;
+
+            for (let i = 0; i < totalPages; i++) {
+                // Yield thread back to browser UI to update progress bar smoothly
+                await new Promise(resolve => setTimeout(resolve, 0));
+
+                const page = pages[i];
                 const { Contents } = page.node.NormalizedEntries();
-                if (!Contents) return;
 
-                const streams = Array.isArray(Contents) ? Contents : [Contents];
+                if (Contents) {
+                    const streams = Array.isArray(Contents) ? Contents : [Contents];
+                    streams.forEach(stream => {
+                        const rawBytes = stream.getUncompressedEncodedBytes();
+                        const text = new TextDecoder('latin1').decode(rawBytes);
 
-                streams.forEach(stream => {
-                    const rawBytes = stream.getUncompressedEncodedBytes();
-                    const text = new TextDecoder('latin1').decode(rawBytes);
+                        const stringMatches = text.match(/\(([^)]+)\)\s*T[jJ]/g);
+                        if (stringMatches) {
+                            stringMatches.forEach(match => {
+                                const cleanText = match.replace(/\((.*)\)\s*T[jJ]/, '$1').trim();
+                                if (cleanText.length > 2) {
+                                    frequencyMap.set(cleanText, (frequencyMap.get(cleanText) || 0) + 1);
+                                }
+                            });
+                        }
+                    });
+                }
 
-                    // Extract text strings inside PDF TJ/Tj operators
-                    const stringMatches = text.match(/\(([^)]+)\)\s*T[jJ]/g);
-                    if (stringMatches) {
-                        stringMatches.forEach(match => {
-                            const cleanText = match.replace(/\((.*)\)\s*T[jJ]/, '$1').trim();
-                            if (cleanText.length > 2) {
-                                const count = frequencyMap.get(cleanText) || 0;
-                                frequencyMap.set(cleanText, count + 1);
-                            }
-                        });
-                    }
-                });
-            });
+                // Update Countdown & Progress Bar Meter
+                let percent = Math.round(((i + 1) / totalPages) * 100);
+                let elapsedMs = Date.now() - startTime;
+                let remainingMs = Math.max(0, Math.round((elapsedMs / (i + 1)) * (totalPages - (i + 1))));
+                
+                let remSecs = Math.ceil(remainingMs / 1000);
+                let mins = Math.floor(remSecs / 60);
+                let secs = remSecs % 60;
 
-            // Filter elements appearing across at least 50% of the document pages
-            const threshold = Math.max(1, Math.floor(totalPages * 0.5));
+                progressFill.style.width = `${percent}%`;
+                statusLabel.textContent = `Scanning ${i + 1}/${totalPages} Pages...`;
+                timeRemaining.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+
+            // Populate Results
+            const threshold = Math.max(1, Math.floor(totalPages * 0.4));
             frequencyMap.forEach((count, text) => {
                 if (count >= threshold) {
-                    detectedPatterns.push({ type: 'Text Vector', pattern: text, occurrences: count });
+                    selectedPatterns.add(text);
+                    const card = document.createElement('div');
+                    card.className = 'detected-card';
+                    card.innerHTML = `
+                        <div>
+                            <strong>"${text}"</strong>
+                            <div style="font-size:0.75rem; color:var(--text-sub);">${count}/${totalPages} pages</div>
+                        </div>
+                        <input type="checkbox" checked>
+                    `;
+                    card.querySelector('input').addEventListener('change', (e) => {
+                        if (e.target.checked) selectedPatterns.add(text);
+                        else selectedPatterns.delete(text);
+                    });
+                    detectedList.appendChild(card);
                 }
             });
 
-            // Display Results
-            if (detectedPatterns.length > 0) {
-                detectionPanel.classList.remove('hidden');
-                detectedPatterns.forEach((item, index) => {
-                    selectedPatterns.add(item.pattern); // Selected by default
-
-                    const card = document.createElement('div');
-                    card.className = 'detected-card active';
-                    card.innerHTML = `
-                        <div>
-                            <strong>"${item.pattern}"</strong>
-                            <div style="font-size: 0.75rem; color: var(--text-sub);">${item.type} • ${item.occurrences}/${totalPages} pages</div>
-                        </div>
-                        <input type="checkbox" checked data-index="${index}">
-                    `;
-
-                    card.querySelector('input').addEventListener('change', (e) => {
-                        if (e.target.checked) {
-                            selectedPatterns.add(item.pattern);
-                            card.classList.add('active');
-                        } else {
-                            selectedPatterns.delete(item.pattern);
-                            card.classList.remove('active');
-                        }
-                    });
-
-                    detectedList.appendChild(card);
-                });
-
-                statusText.textContent = `Auto-detected ${detectedPatterns.length} potential watermark(s).`;
-                processBtn.disabled = false;
-            } else {
-                statusText.textContent = "No repeating structural watermarks found.";
-            }
-
+            progressWidget.classList.add('hidden');
+            detectionPanel.classList.remove('hidden');
             scanBtn.disabled = false;
+            processBtn.disabled = false;
         });
 
-        // EXECUTION & STRIPPING ENGINE
+        // 100% ORIGINAL QUALITY VECTOR EXPORTER
         processBtn.addEventListener('click', async () => {
-            if (selectedPatterns.size === 0) {
-                statusText.textContent = "Select at least one pattern to strip.";
-                return;
-            }
+            if (selectedPatterns.size === 0) return;
 
             processBtn.disabled = true;
-            statusText.textContent = "Stripping watermark streams and re-assembling PDF...";
+            statusLabel.textContent = "Stripping byte streams...";
+            progressWidget.classList.remove('hidden');
+            progressFill.style.width = "50%";
+
+            await new Promise(resolve => setTimeout(resolve, 50));
 
             const pages = pdfDocLib.getPages();
 
+            // Direct Byte-Stream String Replacement (Leaves vector fonts, resolution & images intact)
             pages.forEach((page) => {
                 const { Contents } = page.node.NormalizedEntries();
                 if (!Contents) return;
 
                 const streams = Array.isArray(Contents) ? Contents : [Contents];
-
                 streams.forEach(stream => {
                     let rawBytes = stream.getUncompressedEncodedBytes();
                     let streamText = new TextDecoder('latin1').decode(rawBytes);
 
                     selectedPatterns.forEach(pattern => {
-                        // Strip matching text operators
                         const regex = new RegExp(`\\([^\\)]*${escapeRegExp(pattern)}[^\\)]*\\)\\s*(T[jJ]|\\')`, 'g');
                         streamText = streamText.replace(regex, '() Tj');
                     });
@@ -410,25 +402,24 @@
                 });
             });
 
+            progressFill.style.width = "100%";
             const cleanedPdfBytes = await pdfDocLib.save();
-            downloadPdf(cleanedPdfBytes, "ai_cleaned_document.pdf");
 
-            statusText.textContent = "Watermark removal complete! File downloaded.";
+            // Download Document
+            const blob = new Blob([cleanedPdfBytes], { type: 'application/pdf' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = "original_quality_cleaned.pdf";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            progressWidget.classList.add('hidden');
             processBtn.disabled = false;
         });
 
         function escapeRegExp(string) {
             return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        }
-
-        function downloadPdf(buffer, filename) {
-            const blob = new Blob([buffer], { type: 'application/pdf' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
         }
     </script>
 </body>
