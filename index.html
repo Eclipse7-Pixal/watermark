@@ -104,7 +104,6 @@
             margin-bottom: 8px;
         }
 
-        /* Progress & Timer Widget */
         .progress-box {
             background: var(--bg);
             border: 1px solid var(--panel-border);
@@ -210,10 +209,10 @@
 
             <button id="scanBtn" class="btn" disabled>Scan & Detect Watermarks</button>
 
-            <!-- Progress Meter & Countdown -->
+            <!-- Progress Meter & Countdown Widget -->
             <div id="progressWidget" class="progress-box hidden">
                 <div class="timer-display">
-                    <span id="statusLabel">Processing...</span>
+                    <span id="statusLabel">Initializing...</span>
                     <span id="timeRemaining">--:--</span>
                 </div>
                 <div class="progress-bar-bg">
@@ -222,7 +221,7 @@
             </div>
 
             <div id="detectionPanel" class="hidden">
-                <div class="section-title">Detected Auto-Patterns</div>
+                <div class="section-title">Detected Watermark Patterns</div>
                 <div id="detectedList" class="detected-list"></div>
             </div>
 
@@ -247,7 +246,6 @@
         let selectedPatterns = new Set();
 
         const pdfInput = document.getElementById('pdfInput');
-        const dropArea = document.getElementById('dropArea');
         const dropText = document.getElementById('dropText');
         const fileBadge = document.getElementById('fileBadge');
         const scanBtn = document.getElementById('scanBtn');
@@ -269,7 +267,7 @@
             fileBadge.textContent = `${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`;
 
             rawBuffer = await file.arrayBuffer();
-            pdfDocLib = await PDFLib.PDFDocument.load(rawBuffer, { ignoreEncryption: true });
+            pdfDocLib = await PDFLib.PDFDocument.load(rawBuffer.slice(0), { ignoreEncryption: true });
             pdfDocJs = await pdfjsLib.getDocument({ data: rawBuffer.slice(0) }).promise;
 
             scanBtn.disabled = false;
@@ -287,7 +285,7 @@
             await page.render({ canvasContext: ctx, viewport }).promise;
         }
 
-        // NON-BLOCKING ASYNC SCANNING ENGINE WITH COUNTDOWN
+        // SAFE ASYNC SCANNING ENGINE USING PDF.JS
         scanBtn.addEventListener('click', async () => {
             scanBtn.disabled = true;
             progressWidget.classList.remove('hidden');
@@ -295,55 +293,44 @@
             detectedList.innerHTML = '';
             selectedPatterns.clear();
 
-            const pages = pdfDocLib.getPages();
-            const totalPages = pages.length;
+            const totalPages = pdfDocJs.numPages;
             const frequencyMap = new Map();
-
-            // Estimate ~35ms per page execution time
             let startTime = Date.now();
-            let estimatedTotalMs = totalPages * 35;
 
-            for (let i = 0; i < totalPages; i++) {
-                // Yield thread back to browser UI to update progress bar smoothly
-                await new Promise(resolve => setTimeout(resolve, 0));
+            for (let i = 1; i <= totalPages; i++) {
+                try {
+                    const page = await pdfDocJs.getPage(i);
+                    const textContent = await page.getTextContent();
 
-                const page = pages[i];
-                const { Contents } = page.node.NormalizedEntries();
-
-                if (Contents) {
-                    const streams = Array.isArray(Contents) ? Contents : [Contents];
-                    streams.forEach(stream => {
-                        const rawBytes = stream.getUncompressedEncodedBytes();
-                        const text = new TextDecoder('latin1').decode(rawBytes);
-
-                        const stringMatches = text.match(/\(([^)]+)\)\s*T[jJ]/g);
-                        if (stringMatches) {
-                            stringMatches.forEach(match => {
-                                const cleanText = match.replace(/\((.*)\)\s*T[jJ]/, '$1').trim();
-                                if (cleanText.length > 2) {
-                                    frequencyMap.set(cleanText, (frequencyMap.get(cleanText) || 0) + 1);
-                                }
-                            });
+                    textContent.items.forEach(item => {
+                        const str = item.str.trim();
+                        if (str.length > 2) {
+                            frequencyMap.set(str, (frequencyMap.get(str) || 0) + 1);
                         }
                     });
+                } catch (err) {
+                    console.warn(`Skipped unreadable stream on page ${i}:`, err);
                 }
 
-                // Update Countdown & Progress Bar Meter
-                let percent = Math.round(((i + 1) / totalPages) * 100);
+                // Update Countdown & Progress Meter
+                let percent = Math.round((i / totalPages) * 100);
                 let elapsedMs = Date.now() - startTime;
-                let remainingMs = Math.max(0, Math.round((elapsedMs / (i + 1)) * (totalPages - (i + 1))));
+                let remainingMs = Math.max(0, Math.round((elapsedMs / i) * (totalPages - i)));
                 
                 let remSecs = Math.ceil(remainingMs / 1000);
                 let mins = Math.floor(remSecs / 60);
                 let secs = remSecs % 60;
 
                 progressFill.style.width = `${percent}%`;
-                statusLabel.textContent = `Scanning ${i + 1}/${totalPages} Pages...`;
+                statusLabel.textContent = `Scanning ${i}/${totalPages} Pages...`;
                 timeRemaining.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+                // Force UI tick update
+                await new Promise(r => setTimeout(r, 0));
             }
 
-            // Populate Results
-            const threshold = Math.max(1, Math.floor(totalPages * 0.4));
+            // Filter auto-detected watermarks across pages (35%+ presence)
+            const threshold = Math.max(1, Math.floor(totalPages * 0.35));
             frequencyMap.forEach((count, text) => {
                 if (count >= threshold) {
                     selectedPatterns.add(text);
@@ -370,42 +357,46 @@
             processBtn.disabled = false;
         });
 
-        // 100% ORIGINAL QUALITY VECTOR EXPORTER
+        // 100% VECTOR EXPORT
         processBtn.addEventListener('click', async () => {
             if (selectedPatterns.size === 0) return;
 
             processBtn.disabled = true;
-            statusLabel.textContent = "Stripping byte streams...";
+            statusLabel.textContent = "Stripping watermark stream...";
             progressWidget.classList.remove('hidden');
             progressFill.style.width = "50%";
+            timeRemaining.textContent = "00:05";
 
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise(r => setTimeout(r, 50));
 
             const pages = pdfDocLib.getPages();
 
-            // Direct Byte-Stream String Replacement (Leaves vector fonts, resolution & images intact)
             pages.forEach((page) => {
-                const { Contents } = page.node.NormalizedEntries();
-                if (!Contents) return;
+                try {
+                    const { Contents } = page.node.NormalizedEntries();
+                    if (!Contents) return;
 
-                const streams = Array.isArray(Contents) ? Contents : [Contents];
-                streams.forEach(stream => {
-                    let rawBytes = stream.getUncompressedEncodedBytes();
-                    let streamText = new TextDecoder('latin1').decode(rawBytes);
+                    const streams = Array.isArray(Contents) ? Contents : [Contents];
+                    streams.forEach(stream => {
+                        let rawBytes = stream.getUncompressedEncodedBytes();
+                        let streamText = new TextDecoder('latin1').decode(rawBytes);
 
-                    selectedPatterns.forEach(pattern => {
-                        const regex = new RegExp(`\\([^\\)]*${escapeRegExp(pattern)}[^\\)]*\\)\\s*(T[jJ]|\\')`, 'g');
-                        streamText = streamText.replace(regex, '() Tj');
+                        selectedPatterns.forEach(pattern => {
+                            const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            const regex = new RegExp(`\\([^\\)]*${escaped}[^\\)]*\\)\\s*(T[jJ]|\\')`, 'g');
+                            streamText = streamText.replace(regex, '() Tj');
+                        });
+
+                        stream.data = new TextEncoder().encode(streamText);
                     });
-
-                    stream.data = new TextEncoder().encode(streamText);
-                });
+                } catch (e) {
+                    console.warn("Could not modify low-level stream on page:", e);
+                }
             });
 
             progressFill.style.width = "100%";
             const cleanedPdfBytes = await pdfDocLib.save();
 
-            // Download Document
             const blob = new Blob([cleanedPdfBytes], { type: 'application/pdf' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
@@ -417,10 +408,6 @@
             progressWidget.classList.add('hidden');
             processBtn.disabled = false;
         });
-
-        function escapeRegExp(string) {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        }
     </script>
 </body>
 </html>
